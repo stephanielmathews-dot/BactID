@@ -393,8 +393,7 @@
                     </div>
                 </form>
             </div>
-
-   <!-- PAGE 3: Final Result -->
+           <!-- PAGE 3: Final Result -->
             <div id="page3" class="page">
                 <h3 class="text-xl font-semibold mb-6 border-b border-[#dcb49f] pb-3 text-[#4d3527]">Step 3: Identification Result</h3>
                 
@@ -496,12 +495,14 @@
 
     <!-- 4. JavaScript Application Logic -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+        // --- FIREBASE IMPORTS (Updated to v11.2.0 for Stability) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-app.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-auth.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.2.0/firebase-analytics.js";
 
         // =========================================================================
-        // IMPORTANT: FIREBASE CONFIGURATION
+        // FIREBASE CONFIGURATION
         // =========================================================================
         
         const firebaseConfig = {
@@ -518,17 +519,17 @@
 
         let db = null;
         let auth = null;
+        let analytics = null;
         const COLLECTION_NAME = 'student_submissions'; 
 
-        if (firebaseConfig) {
-            try {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                signInAnonymously(auth).catch(e => console.warn("Auth failed:", e));
-            } catch (e) {
-                console.warn("Firebase Init Error:", e);
-            }
+        try {
+            const app = initializeApp(firebaseConfig);
+            analytics = getAnalytics(app);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            signInAnonymously(auth).catch(e => console.warn("Auth failed:", e));
+        } catch (e) {
+            console.warn("Firebase Init Error:", e);
         }
 
         // --- GLOBALS ---
@@ -659,7 +660,7 @@
             };
 
             // TRY FIREBASE SAVE
-            if (db && firebaseConfig) {
+            if (db) {
                 try {
                     await addDoc(collection(db, COLLECTION_NAME), payload);
                     
