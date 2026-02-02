@@ -394,7 +394,7 @@
                 </form>
             </div>
 
-            <!-- PAGE 3: Final Result -->
+   <!-- PAGE 3: Final Result -->
             <div id="page3" class="page">
                 <h3 class="text-xl font-semibold mb-6 border-b border-[#dcb49f] pb-3 text-[#4d3527]">Step 3: Identification Result</h3>
                 
@@ -484,7 +484,7 @@
         </main>
         
         <footer class="text-center mt-8 text-[#754c29] text-sm">
-            <p>Bacterial Identification Key | Powered by Embedded JSON & Firestore</p>
+            <p>Bacterial Identification Key | Powered by Embedded JSON & Firebase</p>
         </footer>
     </div>
 
@@ -496,16 +496,40 @@
 
     <!-- 4. JavaScript Application Logic -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
 
-        // Initialize Firebase
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // =========================================================================
+        // IMPORTANT: FIREBASE CONFIGURATION
+        // =========================================================================
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDaI0NwkHfE0QE9wIEeIUtEn8i68N5m_uQ",
+            authDomain: "bacterial-identification-e6ba4.firebaseapp.com",
+            projectId: "bacterial-identification-e6ba4",
+            storageBucket: "bacterial-identification-e6ba4.firebasestorage.app",
+            messagingSenderId: "958902523499",
+            appId: "1:958902523499:web:33648bbfdd0f1c4ea9432e",
+            measurementId: "G-V450ZEDB8M"
+        };
+
+        // =========================================================================
+
+        let db = null;
+        let auth = null;
+        const COLLECTION_NAME = 'student_submissions'; 
+
+        if (firebaseConfig) {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                signInAnonymously(auth).catch(e => console.warn("Auth failed:", e));
+            } catch (e) {
+                console.warn("Firebase Init Error:", e);
+            }
+        }
 
         // --- GLOBALS ---
         const pages = document.querySelectorAll('.page');
@@ -547,16 +571,6 @@
             "hemolysis": "Hemolysis "
         };
 
-        // --- AUTHENTICATION ---
-        async function initAuth() {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
-            }
-        }
-        initAuth();
-
         // --- PAGE NAVIGATION ---
         window.showPage = function(pageId) {
             pages.forEach(page => {
@@ -580,6 +594,7 @@
             statusEl.innerHTML = '';
             submitBtn.disabled = false;
             submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            submitBtn.textContent = 'Submit Data';
             
             showPage('page1');
         }
@@ -624,12 +639,12 @@
             // Disable button
             submitBtn.disabled = true;
             submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            submitBtn.textContent = 'Saving...';
+            submitBtn.textContent = 'Processing...';
 
             // Show loading status
             statusEl.classList.remove('hidden');
             statusEl.className = 'p-4 rounded-lg text-center bg-[#eeddd2] text-[#034a5a] mb-4';
-            statusEl.textContent = 'Saving data to the cloud...';
+            statusEl.textContent = 'Saving data...';
 
             const user16S = document.getElementById('16s-input').value;
 
@@ -640,26 +655,62 @@
                 identifiedOrganism: identifiedOrganism ? identifiedOrganism.ID : "None/Multiple",
                 user16SGenus: user16S,
                 timestamp: new Date().toISOString(),
-                userId: auth.currentUser ? auth.currentUser.uid : 'anonymous'
+                userId: (auth && auth.currentUser) ? auth.currentUser.uid : 'anonymous'
             };
 
-            try {
-                // Save to Firestore
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'student_submissions'), payload);
-                
-                // Success UI
-                statusEl.className = 'p-4 rounded-lg text-center bg-[#dcb49f] text-[#4d3527] mb-4';
-                statusEl.innerHTML = '<strong>Success!</strong><br>Your data has been securely saved.';
-                submitBtn.textContent = 'Data Submitted';
-                
-            } catch (error) {
-                console.error("Error saving document: ", error);
-                statusEl.className = 'p-4 rounded-lg text-center bg-[#aa7a5b] text-white mb-4';
-                statusEl.textContent = 'Error saving data. Please try again.';
-                submitBtn.disabled = false;
-                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                submitBtn.textContent = 'Submit Data';
+            // TRY FIREBASE SAVE
+            if (db && firebaseConfig) {
+                try {
+                    await addDoc(collection(db, COLLECTION_NAME), payload);
+                    
+                    // Success UI
+                    statusEl.className = 'p-4 rounded-lg text-center bg-[#dcb49f] text-[#4d3527] mb-4';
+                    statusEl.innerHTML = '<strong>Success!</strong><br>Your data has been saved to the cloud.';
+                    submitBtn.textContent = 'Data Submitted';
+                    return;
+                } catch (error) {
+                    console.error("Error saving document: ", error);
+                    // Fall through to CSV download on error
+                }
             }
+
+            // FALLBACK: DOWNLOAD CSV
+            statusEl.className = 'p-4 rounded-lg text-center bg-[#aa7a5b] text-white mb-4';
+            statusEl.innerHTML = '<strong>Cloud Save Unavailable</strong><br>Downloading local copy instead.';
+            
+            downloadCSV(payload);
+            submitBtn.textContent = 'Downloaded CSV';
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        function downloadCSV(data) {
+            const rows = [
+                ["Timestamp", "User ID", "Identified Organism", "16S Genus Guess"],
+                [data.timestamp, "N/A", data.identifiedOrganism, data.user16SGenus],
+                [],
+                ["Test Name", "Result"]
+            ];
+
+            // Add Primary Inputs
+            for (const [key, val] of Object.entries(data.primaryInputs)) {
+                rows.push([key, val]);
+            }
+            // Add Secondary Inputs
+            for (const [key, val] of Object.entries(data.secondaryInputs)) {
+                rows.push([key, val]);
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8," 
+                + rows.map(e => e.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "microbiology_results.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         function filterDatabase(data, inputs) {
